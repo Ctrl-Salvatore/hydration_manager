@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="it" class="h-full bg-slate-900 text-slate-100">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hydration Manager</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    @keyframes pulse-slow {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.03); }
+    }
+    .animate-pulse-slow {
+      animation: pulse-slow 3s infinite ease-in-out;
+    }
+    @keyframes tear-drop {
+      0% { transform: translateY(0) scale(1); opacity: 0.8; }
+      100% { transform: translateY(20px) scale(0.3); opacity: 0; }
+    }
+    .animate-tear {
+      animation: tear-drop 1.5s infinite ease-in;
+    }
+  </style>
+</head>
+<body class="h-full flex flex-col font-sans antialiased selection:bg-cyan-500 selection:text-white">
+
+  <!-- APP CONTAINER -->
+  <div class="min-h-screen flex flex-col justify-between max-w-4xl mx-auto px-4 py-6 w-full">
+    
+    <!-- HEADER -->
+    <header class="flex items-center justify-between border-b border-slate-800 pb-4">
+      <div class="flex items-center gap-3">
+        <div class="bg-cyan-500/10 p-2.5 rounded-xl border border-cyan-500/30 text-cyan-400">
+          <i class="fa-solid fa-droplet text-2xl"></i>
+        </div>
+        <div>
+          <h1 class="text-xl font-bold bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">
+            Hydration Manager
+          </h1>
+          <p class="text-xs text-slate-400">Rimani idratato durante il lavoro</p>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <button id="btn-sound" onclick="toggleSound()" class="p-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition" title="Attiva/Disattiva Suono">
+          <i id="icon-sound" class="fa-solid fa-volume-high"></i>
+        </button>
+        <button id="btn-notif" onclick="requestNotificationPermission()" class="p-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition" title="Notifiche Desktop">
+          <i id="icon-notif" class="fa-solid fa-bell"></i>
+        </button>
+        <button onclick="toggleCustomizeModal()" class="p-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition" title="Personalizza Immagini">
+          <i class="fa-solid fa-image"></i>
+        </button>
+      </div>
+    </header>
+
+    <!-- MAIN CONTENT -->
+    <main class="my-auto py-8 flex flex-col items-center">
+      
+      <!-- STATUS & CAT DISPLAY -->
+      <div class="relative flex flex-col items-center mb-8">
+        <!-- SVG / Custom Image Wrapper -->
+        <div class="relative w-64 h-64 sm:w-72 sm:h-72 rounded-3xl bg-slate-800/50 border border-slate-700/50 p-4 flex items-center justify-center shadow-2xl backdrop-blur-sm overflow-hidden animate-pulse-slow">
+          <div id="cat-avatar-container" class="w-full h-full flex items-center justify-center">
+            <!-- Rendered dynamically -->
+          </div>
+        </div>
+
+        <!-- Sadness Level Badge -->
+        <div id="status-badge" class="mt-4 px-4 py-1.5 rounded-full text-xs font-semibold bg-cyan-500/10 text-cyan-400 border border-cyan-500/30">
+          Livello 0: Idratato & Felice 😸
+        </div>
+      </div>
+
+      <!-- TIMER CIRCULAR / DIGITAL DISPLAY -->
+      <div class="text-center mb-8">
+        <div id="timer-display" class="text-5xl sm:text-6xl font-black tracking-tight text-slate-100 font-mono mb-2">
+          45:00
+        </div>
+        <p id="status-message" class="text-sm text-slate-400 max-w-xs mx-auto">
+          Il tuo assistente sta bene. Ricordati di bere regolarmente!
+        </p>
+      </div>
+
+      <!-- MAIN ACTION BUTTONS -->
+      <div class="flex flex-col sm:flex-row gap-3 w-full max-w-xs">
+        <button onclick="handleDrinkWater()" class="flex-1 py-3.5 px-6 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-bold shadow-lg shadow-cyan-500/20 active:scale-95 transition flex items-center justify-center gap-2">
+          <i class="fa-solid fa-glass-water"></i> Ho Bevuto!
+        </button>
+        <button onclick="handleSnooze()" class="py-3.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold border border-slate-700 active:scale-95 transition flex items-center justify-center gap-2">
+          <i class="fa-solid fa-clock-rotate-left"></i> +10m
+        </button>
+      </div>
+
+      <!-- INTERVAL PRESETS -->
+      <div class="mt-8 flex items-center gap-2 text-xs text-slate-400 bg-slate-800/40 p-1.5 rounded-xl border border-slate-800">
+        <span class="px-2 font-medium">Intervallo:</span>
+        <button onclick="setTimerInterval(15)" class="preset-btn px-2.5 py-1 rounded-lg hover:bg-slate-700 transition" data-min="15">15m</button>
+        <button onclick="setTimerInterval(30)" class="preset-btn px-2.5 py-1 rounded-lg hover:bg-slate-700 transition" data-min="30">30m</button>
+        <button onclick="setTimerInterval(45)" class="preset-btn px-2.5 py-1 rounded-lg bg-cyan-500 text-white font-bold transition" data-min="45">45m</button>
+        <button onclick="setTimerInterval(60)" class="preset-btn px-2.5 py-1 rounded-lg hover:bg-slate-700 transition" data-min="60">60m</button>
+        <button onclick="setTimerInterval(0.166)" class="px-2 py-1 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20 hover:bg-amber-500/20 transition" title="Test rapido (10 secondi)">⚡ Test (10s)</button>
+      </div>
+    </main>
+
+    <!-- FOOTER / STATS -->
+    <footer class="border-t border-slate-800 pt-4 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500 gap-2">
+      <div class="flex items-center gap-4">
+        <span>Bicchieri oggi: <strong id="stats-count" class="text-slate-300">0</strong></span>
+        <span>Serie: <strong id="stats-streak" class="text-slate-300">0 giorni</strong></span>
+      </div>
+      <div>
+        <span>Hydration Manager • Portatile & Web-Ready</span>
+      </div>
+    </footer>
+  </div>
+
+  <!-- CUSTOMIZATION MODAL -->
+  <div id="modal-customize" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 max-w-lg w-full shadow-2xl relative max-h-[90vh] overflow-y-auto">
+      <button onclick="toggleCustomizeModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white">
+        <i class="fa-solid fa-xmark text-lg"></i>
+      </button>
+
+      <h3 class="text-lg font-bold text-white mb-1">Personalizza Immagini</h3>
+      <p class="text-xs text-slate-400 mb-6">Incolla l'URL di un'immagine o seleziona un file locale per ciascun livello di tristezza.</p>
+
+      <div class="space-y-4">
+        <!-- Level 0 -->
+        <div class="bg-slate-800/50 p-3 rounded-xl border border-slate-700/50">
+          <label class="block text-xs font-semibold text-cyan-400 mb-2">Livello 0: Idratato / Felice 😸</label>
+          <div class="flex gap-2">
+            <input type="text" id="url-lvl-0" placeholder="https://... o lascia vuoto per SVG" class="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-cyan-500">
+            <input type="file" id="file-lvl-0" accept="image/*" class="hidden" onchange="handleFileSelect(event, 0)">
+            <button onclick="document.getElementById('file-lvl-0').click()" class="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-xs rounded-lg text-slate-200">
+              <i class="fa-solid fa-upload"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- Level 1 -->
+        <div class="bg-slate-800/50 p-3 rounded-xl border border-slate-700/50">
+          <label class="block text-xs font-semibold text-amber-400 mb-2">Livello 1: Poco Idratato 😺</label>
+          <div class="flex gap-2">
+            <input type="text" id="url-lvl-1" placeholder="https://... o lascia vuoto per SVG" class="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-cyan-500">
+            <input type="file" id="file-lvl-1" accept="image/*" class="hidden" onchange="handleFileSelect(event, 1)">
+            <button onclick="document.getElementById('file-lvl-1').click()" class="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-xs rounded-lg text-slate-200">
+              <i class="fa-solid fa-upload"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- Level 2 -->
+        <div class="bg-slate-800/50 p-3 rounded-xl border border-slate-700/50">
+          <label class="block text-xs font-semibold text-orange-400 mb-2">Livello 2: Triste 😿</label>
+          <div class="flex gap-2">
+            <input type="text" id="url-lvl-2" placeholder="https://... o lascia vuoto per SVG" class="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-cyan-500">
+            <input type="file" id="file-lvl-2" accept="image/*" class="hidden" onchange="handleFileSelect(event, 2)">
+            <button onclick="document.getElementById('file-lvl-2').click()" class="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-xs rounded-lg text-slate-200">
+              <i class="fa-solid fa-upload"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- Level 3 -->
+        <div class="bg-slate-800/50 p-3 rounded-xl border border-slate-700/50">
+          <label class="block text-xs font-semibold text-red-400 mb-2">Livello 3: Disperato 🙀</label>
+          <div class="flex gap-2">
+            <input type="text" id="url-lvl-3" placeholder="https://... o lascia vuoto per SVG" class="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-cyan-500">
+            <input type="file" id="file-lvl-3" accept="image/*" class="hidden" onchange="handleFileSelect(event, 3)">
+            <button onclick="document.getElementById('file-lvl-3').click()" class="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-xs rounded-lg text-slate-200">
+              <i class="fa-solid fa-upload"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="mt-6 flex justify-end gap-2">
+        <button onclick="resetCustomImages()" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-300">Ripristina Predefiniti</button>
+        <button onclick="saveCustomImages()" class="px-4 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-xs font-bold text-white">Salva Modifiche</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- JAVASCRIPT LOGIC -->
+  <script>
+    // APP STATE
+    let timerMinutes = 45;
+    let secondsLeft = timerMinutes * 60;
+    let timerInterval = null;
+    let sadnessLevel = 0; // 0: Happy, 1: Slightly Sad, 2: Sad, 3: Desperate
+    let soundEnabled = true;
+    let glassesDrunkToday = 0;
+
+    // Default Custom Images config (saved in LocalStorage)
+    let customImages = JSON.parse(localStorage.getItem('hydration_custom_images')) || {
+      0: '',
+      1: '',
+      2: '',
+      3: ''
+    };
+
+    // AUDIO SYNTHESIZER (Web Audio API)
+    function playChime(type) {
+      if (!soundEnabled) return;
+      try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+
+        if (type === 'drink') {
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(523.25, ctx.currentTime); // C5
+          osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.3); // A5
+          gain.gain.setValueAtTime(0.3, ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
+          osc.start();
+          osc.stop(ctx.currentTime + 0.3);
+        } else if (type === 'alert') {
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(300, ctx.currentTime);
+          osc.frequency.exponentialRampToValueAtTime(150, ctx.currentTime + 0.5);
+          gain.gain.setValueAtTime(0.4, ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
+          osc.start();
+          osc.stop(ctx.currentTime + 0.5);
+        }
+      } catch (e) {
+        console.error("Audio Web API error:", e);
+      }
+    }
+
+    // SVG CAT RENDERER (Fallback if no custom image is set)
+    function getCatSvg(level) {
+      let face, mouth, eyes, extras = '';
+
+      if (level === 0) {
+        // Happy
+        eyes = `<circle cx="70" cy="90" r="8" fill="#0f172a"/><circle cx="130" cy="90" r="8" fill="#0f172a"/><circle cx="72" cy="88" r="3" fill="#ffffff"/><circle cx="132" cy="88" r="3" fill="#ffffff"/>`;
+        mouth = `<path d="M 85 115 Q 100 130 115 115" stroke="#0f172a" stroke-width="4" fill="none" stroke-linecap="round"/>`;
+        extras = `<path d="M 60 110 Q 50 115 60 120" stroke="#f43f5e" stroke-width="3" fill="none" opacity="0.5"/>
+                  <path d="M 140 110 Q 150 115 140 120" stroke="#f43f5e" stroke-width="3" fill="none" opacity="0.5"/>`;
+      } else if (level === 1) {
+        // Neutral / Mild
+        eyes = `<circle cx="70" cy="90" r="8" fill="#0f172a"/><circle cx="130" cy="90" r="8" fill="#0f172a"/>`;
+        mouth = `<line x1="85" y1="120" x2="115" y2="120" stroke="#0f172a" stroke-width="4" stroke-linecap="round"/>`;
+      } else if (level === 2) {
+        // Sad
+        eyes = `<circle cx="70" cy="90" r="9" fill="#0f172a"/><circle cx="130" cy="90" r="9" fill="#0f172a"/><circle cx="68" cy="88" r="3" fill="#ffffff"/><circle cx="128" cy="88" r="3" fill="#ffffff"/>`;
+        mouth = `<path d="M 85 125 Q 100 110 115 125" stroke="#0f172a" stroke-width="4" fill="none" stroke-linecap="round"/>`;
+        extras = `<circle cx="60" cy="100" r="4" fill="#38bdf8" class="animate-tear"/>`;
+      } else {
+        // Desperate
+        eyes = `<ellipse cx="70" cy="90" rx="10" ry="12" fill="#0f172a"/><ellipse cx="130" cy="90" rx="10" ry="12" fill="#0f172a"/><circle cx="67" cy="86" r="4" fill="#ffffff"/><circle cx="127" cy="86" r="4" fill="#ffffff"/>`;
+        mouth = `<ellipse cx="100" cy="125" rx="12" ry="16" fill="#0f172a"/>`;
+        extras = `<circle cx="58" cy="102" r="5" fill="#38bdf8" class="animate-tear"/>
+                  <circle cx="142" cy="102" r="5" fill="#38bdf8" class="animate-tear"/>`;
+      }
+
+      return `
+        <svg viewBox="0 0 200 200" class="w-full h-full drop-shadow-md">
+          <!-- Ears -->
+          <polygon points="40,70 20,20 80,40" fill="#fbbf24"/>
+          <polygon points="45,65 30,30 75,45" fill="#fef3c7"/>
+          <polygon points="160,70 180,20 120,40" fill="#fbbf24"/>
+          <polygon points="155,65 170,30 125,45" fill="#fef3c7"/>
+          
+          <!-- Head -->
+          <circle cx="100" cy="100" r="65" fill="#fbbf24"/>
+          
+          <!-- Whiskers -->
+          <line x1="30" y1="95" x2="60" y2="100" stroke="#0f172a" stroke-width="3" stroke-linecap="round"/>
+          <line x1="25" y1="110" x2="58" y2="110" stroke="#0f172a" stroke-width="3" stroke-linecap="round"/>
+          <line x1="170" y1="95" x2="140" y2="100" stroke="#0f172a" stroke-width="3" stroke-linecap="round"/>
+          <line x1="175" y1="110" x2="142" y2="110" stroke="#0f172a" stroke-width="3" stroke-linecap="round"/>
+
+          <!-- Nose -->
+          <polygon points="95,102 105,102 100,108" fill="#f43f5e"/>
+
+          ${eyes}
+          ${mouth}
+          ${extras}
+        </svg>
+      `;
+    }
+
+    // UI RENDERER
+    function updateUI() {
+      // Update Timer Text
+      const m = Math.floor(secondsLeft / 60).toString().padStart(2, '0');
+      const s = Math.floor(secondsLeft % 60).toString().padStart(2, '0');
+      document.getElementById('timer-display').textContent = `${m}:${s}`;
+
+      // Update Avatar
+      const avatarContainer = document.getElementById('cat-avatar-container');
+      if (customImages[sadnessLevel]) {
+        avatarContainer.innerHTML = `<img src="${customImages[sadnessLevel]}" class="w-full h-full object-contain rounded-2xl" alt="Livello ${sadnessLevel}">`;
+      } else {
+        avatarContainer.innerHTML = getCatSvg(sadnessLevel);
+      }
+
+      // Status messages & badges
+      const statusBadge = document.getElementById('status-badge');
+      const statusMessage = document.getElementById('status-message');
+
+      const statusMap = [
+        {
+          badge: "Livello 0: Idratato & Felice 😸",
+          bg: "bg-cyan-500/10", text: "text-cyan-400", border: "border-cyan-500/30",
+          msg: "Il tuo assistente sta bene. Ricordati di bere regolarmente!"
+        },
+        {
+          badge: "Livello 1: Un po' assetato 😺",
+          bg: "bg-amber-500/10", text: "text-amber-400", border: "border-amber-500/30",
+          msg: "È passato un po' di tempo. Fai una pausa e bevi un sorso d'acqua!"
+        },
+        {
+          badge: "Livello 2: Triste 😿",
+          bg: "bg-orange-500/10", text: "text-orange-400", border: "border-orange-500/30",
+          msg: "Stai ignorando l'idratazione... il gatto sta diventando triste!"
+        },
+        {
+          badge: "Livello 3: Disperato 🙀",
+          bg: "bg-red-500/10", text: "text-red-400", border: "border-red-500/30",
+          msg: "URGENTE! Bevi subito un bicchiere d'acqua per salvataggio immediato!"
+        }
+      ];
+
+      const currentStatus = statusMap[Math.min(sadnessLevel, 3)];
+      statusBadge.className = `mt-4 px-4 py-1.5 rounded-full text-xs font-semibold border ${currentStatus.bg} ${currentStatus.text} ${currentStatus.border}`;
+      statusBadge.textContent = currentStatus.badge;
+      statusMessage.textContent = currentStatus.msg;
+
+      document.getElementById('stats-count').textContent = glassesDrunkToday;
+    }
+
+    // TIMER ENGINE
+    function startTimer() {
+      if (timerInterval) clearInterval(timerInterval);
+
+      timerInterval = setInterval(() => {
+        if (secondsLeft > 0) {
+          secondsLeft--;
+          updateUI();
+        } else {
+          // Timer Expired!
+          handleTimerExpired();
+        }
+      }, 1000);
+    }
+
+    function handleTimerExpired() {
+      if (sadnessLevel < 3) sadnessLevel++;
+      playChime('alert');
+      sendDesktopNotification();
+      
+      // Auto reset timer to 10 minutes snooze while waiting for user interaction
+      secondsLeft = 10 * 60;
+      updateUI();
+    }
+
+    function handleDrinkWater() {
+      sadnessLevel = 0;
+      glassesDrunkToday++;
+      secondsLeft = timerMinutes * 60;
+      playChime('drink');
+      updateUI();
+      startTimer();
+    }
+
+    function handleSnooze() {
+      if (sadnessLevel < 3) sadnessLevel++;
+      secondsLeft = 10 * 60; // 10 minutes snooze
+      updateUI();
+      startTimer();
+    }
+
+    function setTimerInterval(mins) {
+      timerMinutes = mins;
+      secondsLeft = Math.round(mins * 60);
+
+      // Update Active preset button style
+      document.querySelectorAll('.preset-btn').forEach(btn => {
+        if (parseFloat(btn.dataset.min) === mins) {
+          btn.className = "preset-btn px-2.5 py-1 rounded-lg bg-cyan-500 text-white font-bold transition";
+        } else {
+          btn.className = "preset-btn px-2.5 py-1 rounded-lg hover:bg-slate-700 transition";
+        }
+      });
+
+      updateUI();
+      startTimer();
+    }
+
+    // NOTIFICATIONS API
+    function requestNotificationPermission() {
+      if ('Notification' in window) {
+        Notification.requestPermission().then(permission => {
+          updateNotifIcon();
+          if (permission === 'granted') {
+            new Notification("Hydration Manager", {
+              body: "Le notifiche desktop sono attive!",
+              icon: "https://cdn-icons-png.flaticon.com/512/3105/3105807.png"
+            });
+          }
+        });
+      }
+    }
+
+    function sendDesktopNotification() {
+      if ('Notification' in window && Notification.permission === 'granted') {
+        const titles = [
+          "Ora di bere! 💧",
+          "Non dimenticare l'acqua! 😺",
+          "Il tuo assistente è triste... 😿",
+          "SOS Idratazione! 🙀"
+        ];
+        new Notification(titles[sadnessLevel], {
+          body: "Fai un clic su 'Ho Bevuto!' per far tornare felice il tuo assistente.",
+          icon: customImages[sadnessLevel] || "https://cdn-icons-png.flaticon.com/512/3105/3105807.png"
+        });
+      }
+    }
+
+    function updateNotifIcon() {
+      const icon = document.getElementById('icon-notif');
+      if ('Notification' in window && Notification.permission === 'granted') {
+        icon.className = "fa-solid fa-bell text-cyan-400";
+      } else {
+        icon.className = "fa-solid fa-bell-slash text-slate-500";
+      }
+    }
+
+    function toggleSound() {
+      soundEnabled = !soundEnabled;
+      document.getElementById('icon-sound').className = soundEnabled ? "fa-solid fa-volume-high text-cyan-400" : "fa-solid fa-volume-xmark text-slate-500";
+    }
+
+    // CUSTOMIZATION MODAL
+    function toggleCustomizeModal() {
+      const modal = document.getElementById('modal-customize');
+      if (modal.classList.contains('hidden')) {
+        // Load current state into inputs
+        document.getElementById('url-lvl-0').value = customImages[0] || '';
+        document.getElementById('url-lvl-1').value = customImages[1] || '';
+        document.getElementById('url-lvl-2').value = customImages[2] || '';
+        document.getElementById('url-lvl-3').value = customImages[3] || '';
+        modal.classList.remove('hidden');
+      } else {
+        modal.classList.add('hidden');
+      }
+    }
+
+    function handleFileSelect(event, level) {
+      const file = event.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          customImages[level] = e.target.result;
+          document.getElementById(`url-lvl-${level}`).value = "(Immagine Locale Caricata)";
+        };
+        reader.readAsDataURL(file);
+      }
+    }
+
+    function saveCustomImages() {
+      for (let i = 0; i <= 3; i++) {
+        const val = document.getElementById(`url-lvl-${i}`).value;
+        if (val && val !== "(Immagine Locale Caricata)") {
+          customImages[i] = val;
+        }
+      }
+      localStorage.setItem('hydration_custom_images', JSON.stringify(customImages));
+      toggleCustomizeModal();
+      updateUI();
+    }
+
+    function resetCustomImages() {
+      customImages = { 0: '', 1: '', 2: '', 3: '' };
+      localStorage.removeItem('hydration_custom_images');
+      toggleCustomizeModal();
+      updateUI();
+    }
+
+    // INIT
+    updateNotifIcon();
+    updateUI();
+    startTimer();
+  </script>
+</body>
+</html>
