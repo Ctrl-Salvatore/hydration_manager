@@ -43,7 +43,13 @@
       </div>
 
       <div class="flex items-center gap-2">
-        <button id="btn-sound" onclick="toggleSound()" class="p-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition" title="Attiva/Disattiva Suono">
+        <!-- BACKGROUND KEEP-ALIVE INDICATOR -->
+        <div id="bg-status" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-medium" title="Sottofondo Attivo: la scheda non andrà in sospensione">
+          <i class="fa-solid fa-bolt text-xs animate-pulse"></i>
+          <span class="hidden sm:inline">Anti-Sospensione Attivo</span>
+        </div>
+
+        <button id="btn-sound" onclick="toggleSound()" class="p-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition" title="Attiva/Disattiva Suono Avvisi">
           <i id="icon-sound" class="fa-solid fa-volume-high"></i>
         </button>
         <button id="btn-notif" onclick="requestNotificationPermission()" class="p-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition" title="Notifiche Desktop">
@@ -108,7 +114,7 @@
         <span>Bicchieri oggi: <strong id="stats-count" class="text-slate-300">0</strong></span>
       </div>
       <div>
-        <span>Hydration Manager • Background Service Worker Active</span>
+        <span>Hydration Manager • Audio-KeepAlive Engine</span>
       </div>
     </footer>
   </div>
@@ -184,48 +190,65 @@
     let sadnessLevel = 0;
     let soundEnabled = true;
     let glassesDrunkToday = 0;
-    let swRegistration = null;
+    let audioCtx = null;
 
     let customImages = JSON.parse(localStorage.getItem('hydration_custom_images')) || { 0: '', 1: '', 2: '', 3: '' };
 
-    // REGISTER SERVICE WORKER
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('sw.js').then((reg) => {
-        swRegistration = reg;
-        console.log('Service Worker Registrato con successo:', reg);
-      }).catch((err) => {
-        console.error('Errore registrazione Service Worker:', err);
-      });
+    // SILENT AUDIO KEEP-ALIVE (Inganna il browser impedendo il throttling della scheda)
+    function enableSilentKeepAlive() {
+      try {
+        if (!audioCtx) {
+          audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        if (audioCtx.state === 'suspended') {
+          audioCtx.resume();
+        }
+
+        // Genera un oscillatore impercettibile con guadagno 0.0001 (Silenzio totale)
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(15, audioCtx.currentTime); // 15 Hz inudibili
+        gain.gain.setValueAtTime(0.0001, audioCtx.currentTime); // Volume quasi zero
+
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+
+        console.log("Anti-Sospensione Browser Attivato.");
+      } catch (e) {
+        console.warn("Impossibile attivare keep-alive audio:", e);
+      }
     }
 
-    // AUDIO SYNTHESIZER
+    // AUDIO SYNTHESIZER PER GLI AVVISI
     function playChime(type) {
       if (!soundEnabled) return;
       try {
-        const ctx = new (window.AudioContext || window.webkitAudioContext)();
-        if (ctx.state === 'suspended') ctx.resume();
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        if (audioCtx.state === 'suspended') audioCtx.resume();
 
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
         osc.connect(gain);
-        gain.connect(ctx.destination);
+        gain.connect(audioCtx.destination);
 
         if (type === 'drink') {
           osc.type = 'sine';
-          osc.frequency.setValueAtTime(523.25, ctx.currentTime);
-          osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.3);
-          gain.gain.setValueAtTime(0.3, ctx.currentTime);
-          gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
+          osc.frequency.setValueAtTime(523.25, audioCtx.currentTime);
+          osc.frequency.exponentialRampToValueAtTime(880, audioCtx.currentTime + 0.3);
+          gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
           osc.start();
-          osc.stop(ctx.currentTime + 0.3);
+          osc.stop(audioCtx.currentTime + 0.3);
         } else if (type === 'alert') {
           osc.type = 'triangle';
-          osc.frequency.setValueAtTime(300, ctx.currentTime);
-          osc.frequency.exponentialRampToValueAtTime(150, ctx.currentTime + 0.5);
-          gain.gain.setValueAtTime(0.4, ctx.currentTime);
-          gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
+          osc.frequency.setValueAtTime(300, audioCtx.currentTime);
+          osc.frequency.exponentialRampToValueAtTime(150, audioCtx.currentTime + 0.5);
+          gain.gain.setValueAtTime(0.4, audioCtx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
           osc.start();
-          osc.stop(ctx.currentTime + 0.5);
+          osc.stop(audioCtx.currentTime + 0.5);
         }
       } catch (e) {
         console.error("Audio error:", e);
@@ -300,28 +323,8 @@
       document.getElementById('stats-count').textContent = glassesDrunkToday;
     }
 
-    function scheduleBackgroundNotification(delayMs) {
-      if (navigator.serviceWorker && navigator.serviceWorker.controller) {
-        const titles = ["Ora di bere! 💧", "Non dimenticare l'acqua! 😺", "Il tuo assistente è triste... 😿", "SOS Idratazione! 🙀"];
-        const nextSadness = Math.min(sadnessLevel + 1, 3);
-        
-        navigator.serviceWorker.controller.postMessage({
-          type: 'SCHEDULE_NOTIFICATION',
-          delayMs: delayMs,
-          title: titles[nextSadness],
-          body: "Fai clic qui per registrare l'acqua che hai bevuto!",
-          icon: customImages[nextSadness] || "https://cdn-icons-png.flaticon.com/512/3105/3105807.png"
-        });
-      }
-    }
-
     function startTimer() {
       if (timerLoop) clearInterval(timerLoop);
-
-      const delayMs = targetTime - Date.now();
-      if (delayMs > 0) {
-        scheduleBackgroundNotification(delayMs);
-      }
 
       timerLoop = setInterval(() => {
         const now = Date.now();
@@ -333,25 +336,35 @@
       }, 500);
     }
 
-    document.addEventListener('visibilitychange', () => {
-      if (!document.hidden) {
-        if (Date.now() >= targetTime) {
-          handleTimerExpired();
-        } else {
-          updateUI();
+    function sendDesktopNotification() {
+      if ('Notification' in window && Notification.permission === 'granted') {
+        const titles = ["Ora di bere! 💧", "Non dimenticare l'acqua! 😺", "Il tuo assistente è triste... 😿", "SOS Idratazione! 🙀"];
+        try {
+          const notif = new Notification(titles[sadnessLevel], {
+            body: "Fai clic per registrare l'acqua che hai bevuto!",
+            icon: customImages[sadnessLevel] || "https://cdn-icons-png.flaticon.com/512/3105/3105807.png",
+            requireInteraction: true
+          });
+          notif.onclick = function() {
+            window.focus();
+            notif.close();
+          };
+        } catch(e) {
+          console.error("Notifica fallita:", e);
         }
       }
-    });
+    }
 
     function handleTimerExpired() {
       if (sadnessLevel < 3) sadnessLevel++;
       playChime('alert');
-      targetTime = Date.now() + (10 * 60 * 1000); // 10m snooze
+      sendDesktopNotification();
+      targetTime = Date.now() + (10 * 60 * 1000); // Snooze automatico di 10m
       updateUI();
-      startTimer();
     }
 
     function handleDrinkWater() {
+      enableSilentKeepAlive(); // Attiva l'audio keep-alive al primo click
       sadnessLevel = 0;
       glassesDrunkToday++;
       targetTime = Date.now() + (timerMinutes * 60 * 1000);
@@ -361,6 +374,7 @@
     }
 
     function handleSnooze() {
+      enableSilentKeepAlive();
       if (sadnessLevel < 3) sadnessLevel++;
       targetTime = Date.now() + (10 * 60 * 1000);
       updateUI();
@@ -368,6 +382,7 @@
     }
 
     function setTimerInterval(mins) {
+      enableSilentKeepAlive();
       timerMinutes = mins;
       targetTime = Date.now() + (mins * 60 * 1000);
 
@@ -384,6 +399,7 @@
     }
 
     function requestNotificationPermission() {
+      enableSilentKeepAlive();
       if (!('Notification' in window)) {
         alert("Questo browser non supporta le notifiche desktop.");
         return;
@@ -392,12 +408,10 @@
       Notification.requestPermission().then(permission => {
         updateNotifIcon();
         if (permission === 'granted') {
-          if (swRegistration) {
-            swRegistration.showNotification("Hydration Manager", {
-              body: "Notifiche attive anche in background!",
-              icon: "https://cdn-icons-png.flaticon.com/512/3105/3105807.png"
-            });
-          }
+          new Notification("Hydration Manager", {
+            body: "Notifiche attive! L'app rimarrà sveglia anche in background.",
+            icon: "https://cdn-icons-png.flaticon.com/512/3105/3105807.png"
+          });
         }
       });
     }
@@ -459,6 +473,9 @@
       toggleCustomizeModal();
       updateUI();
     }
+
+    // Attiva il keep-alive audio alla prima interazione dell'utente con la pagina
+    window.addEventListener('click', () => enableSilentKeepAlive(), { once: true });
 
     // INIT
     updateNotifIcon();
